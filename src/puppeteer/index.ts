@@ -918,7 +918,7 @@ const downloadImageTool = {
         pageInstance: Page
     ): Promise<{ success: boolean; savedTo?: string; size?: number }> {
         // Ensure we have a URL - either directly provided or extracted from selector
-        let imageUrl = input.imageUrl;
+        let imageUrl: string | null | undefined = input.imageUrl;
 
         if (!imageUrl && input.selector) {
             // Extract the image URL from the selector
