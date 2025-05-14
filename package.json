@@ -23,9 +23,14 @@
     "url": "git+https://github.com/truffle-ai/mcp-servers.git"
   },
   "keywords": [
+    "truffle-ai",
+    "saiki",
+    "modelcontextprotocol",
+    "mcp-servers",
     "mcp",
-    "servers",
-    "monorepo"
+    "puppeteer",
+    "docker",
+    "typescript"
   ],
   "author": "Truffle AI",
   "license": "MIT"
