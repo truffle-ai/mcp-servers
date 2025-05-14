@@ -5,6 +5,7 @@
   "description": "MCP server for Puppeteer-based browser automation",
   "type": "module",
   "main": "dist/index.js",
+  "bin": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",

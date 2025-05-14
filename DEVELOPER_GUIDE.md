@@ -1,8 +1,10 @@
 # Developer Guide
 
-## Testing with Saiki
 
-Follow these steps to test any MCP server locally in Saiki using `npm link`:
+
+## Testing with [Saiki](https://github.com/truffle-ai/saiki)
+
+Follow these steps to test any MCP server locally in Saiki using `npm link`. This is useful if you are updating the MCP servers and want to test it before publishing.
 
 1. Build the monorepo
 
@@ -29,7 +31,17 @@ Follow these steps to test any MCP server locally in Saiki using `npm link`:
 
    - `<npm-package-name>` is the `name` field in the server's `package.json` (e.g., `puppeteer-server`).
 
-4. Update your client's MCP config (YAML or JSON) to point to the linked package
+4. Run the server locally to verify
+
+   In saiki repo
+
+   ```bash
+   npx -y @truffle-ai/<npm-package-name>
+   ```
+
+   - `<npm-package-name>` is the `name` field in the server's `package.json` (e.g., `puppeteer-server`).
+
+5. Update your client's MCP config (YAML or JSON) to point to the linked package
 
    YAML example:
    ```yaml
@@ -37,6 +49,7 @@ Follow these steps to test any MCP server locally in Saiki using `npm link`:
      <server-key>:
        command: npx
        args:
+         - -y
          - "@truffle-ai/<npm-package-name>"
    ```
 
@@ -46,14 +59,15 @@ Follow these steps to test any MCP server locally in Saiki using `npm link`:
      "mcpServers": {
        "<server-key>": {
          "command": "npx",
-         "args": ["@truffle-ai/<npm-package-name>"]
+         "args": ["-y", "@truffle-ai/<npm-package-name>"]
        }
      }
    }
    ```
 
    - `<server-key>` typically matches the directory name (e.g., `puppeteer`).
-   - With the link in place, running your client will launch the locally built server as if it were published.
+   - With the link in place, running `npx -y @truffle-ai/<npm-package-name>` will launch the locally built server as if it were published.
+
 
 ---
 

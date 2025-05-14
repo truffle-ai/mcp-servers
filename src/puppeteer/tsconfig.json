@@ -5,7 +5,7 @@
     "rootDir": ".", 
     "declaration": true,
     "sourceMap": true,
-    "composite": true 
+    "composite": true
   },
   "include": ["./*.ts"],
   "exclude": ["node_modules", "dist"]
