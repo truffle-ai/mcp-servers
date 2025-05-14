@@ -1,0 +1,32 @@
+{
+  "name": "@truffle-ai/mcp-servers",
+  "private": true,
+  "description": "Repository for custom MCP servers",
+  "type": "module",
+  "workspaces": [
+    "src/*"
+  ],
+  "files": [],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "clean": "npm run clean --workspaces",
+    "publish-all": "npm publish --workspaces --access public",
+    "link-all": "npm link --workspaces"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git"
+  },
+  "keywords": [
+    "mcp",
+    "servers",
+    "monorepo"
+  ],
+  "author": "Truffle AI",
+  "license": "MIT"
+} 
