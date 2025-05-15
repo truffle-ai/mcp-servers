@@ -147,8 +147,6 @@ Use with other clients (Cursor, Claude desktop, etc.)
 }
 ```
 
-## Testing with Saiki
-
 
 ## License
 

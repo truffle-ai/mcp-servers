@@ -44,18 +44,18 @@ Follow these steps to test any MCP server locally in Saiki using `npm link`. Thi
    YAML example for Saiki:
    ```yaml
    mcpServers:
-     <server-key>:
+     <server-name>:
        command: npx
        args:
          - -y
          - "@truffle-ai/<npm-package-name>"
    ```
 
-   JSON example:
+   JSON example (for other MCP clients like Cursor, Claude etc.):
    ```json
    {
      "mcpServers": {
-       "<server-key>": {
+       "<server-name>": {
          "command": "npx",
          "args": ["-y", "@truffle-ai/<npm-package-name>"]
        }
@@ -63,7 +63,7 @@ Follow these steps to test any MCP server locally in Saiki using `npm link`. Thi
    }
    ```
 
-   - `<server-key>` typically matches the directory name (e.g., `puppeteer`).
+   - `<server-name>` typically matches the directory name (e.g., `puppeteer`) but you can name it whatever you like.
    - With the link in place, running `npx -y @truffle-ai/<npm-package-name>` will launch the locally built server as if it were published.
 
 
