@@ -1,6 +1,6 @@
 [project]
 name = "truffle-ai-music-creator-mcp"
-version = "1.0.0"
+version = "1.0.2"
 description = "MCP server for music creation, editing, and audio processing using librosa, pydub, and music21"
 authors = [
     {name = "Truffle AI", email = "founders@trytruffle.ai"}
@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-music-creator-mcp = "main:main"
+truffle-ai-music-creator-mcp = "main:main"
 
 [project.optional-dependencies]
 dev = [

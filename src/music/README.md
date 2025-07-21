@@ -218,7 +218,7 @@ uv run ruff check main.py
 # Build the package
 uv build
 
-# Publish to PyPI
+# Publish to PyPI. Do this from 'music' directory
 uv publish
 
 # Or publish to TestPyPI first
