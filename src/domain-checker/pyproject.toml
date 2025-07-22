@@ -1,0 +1,46 @@
+[project]
+name = "truffle-ai-domain-checker-mcp"
+version = "1.0.0"
+description = "MCP server for checking domain name availability"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Truffle AI", email = "founders@trytruffle.ai" }
+]
+license = { text = "MIT" }
+keywords = ["truffle-ai", "saiki", "mcp", "domain", "whois"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "fastmcp>=0.1.0",
+    "python-whois>=0.8.0",
+    "dnspython>=2.4.0",
+    "uvicorn>=0.23.0",
+]
+
+[project.scripts]
+truffle-ai-domain-checker-mcp = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/truffle-ai/mcp-servers"
+Repository = "https://github.com/truffle-ai/mcp-servers"
+Issues = "https://github.com/truffle-ai/mcp-servers/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.uv]
+dev-dependencies = []
