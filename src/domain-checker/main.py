@@ -214,7 +214,41 @@ async def check_domain_variations(base_name: str, extensions: List[str] = None) 
         extensions = ['.com', '.net', '.org', '.io', '.app', '.dev', '.tech']
     
     domains = [f"{base_name}{ext}" for ext in extensions]
-    return await check_multiple_domains(domains)
+    
+    # Check domains concurrently using the same logic as check_multiple_domains
+    if not domains:
+        return "Error: Domain list is required"
+    
+    tasks = [domain_checker.check_domain_availability(domain) for domain in domains]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Handle any exceptions in the results
+    processed_results = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            processed_results.append({
+                "domain": domains[i],
+                "available": None,
+                "error": str(result)
+            })
+        else:
+            processed_results.append(result)
+    
+    # Format results as a table
+    response = "Domain Availability Check Results:\n\n"
+    for result in processed_results:
+        if result["available"] is True:
+            status = "✅ LIKELY AVAILABLE"
+        elif result["available"] is False:
+            status = "❌ NOT AVAILABLE"
+        else:
+            status = "❓ UNCLEAR"
+        
+        response += f"{result['domain']:<30} {status}\n"
+    
+    response += f"\nDetailed results:\n{json.dumps(processed_results, indent=2)}"
+    
+    return response
 
 @mcp.resource("domain://check/{domain}")
 async def domain_info_resource(domain: str) -> str:
