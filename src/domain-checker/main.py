@@ -55,7 +55,7 @@ class DomainChecker:
             results["details"]["dns"] = dns_result
             
             # Determine overall availability
-            if results["whois_available"] is True and results["dns_resolvable"] is False:
+            if results["whois_available"] is True and results["dns_resolvable"] is not True:
                 results["available"] = True
             elif results["whois_available"] is False:
                 results["available"] = False
