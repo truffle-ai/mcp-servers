@@ -12,7 +12,7 @@ import io
 import tempfile
 import atexit
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -62,6 +62,20 @@ def _get_image_info(file_path: str) -> Dict[str, Any]:
         "fileName": Path(file_path).name,
         "format": Path(file_path).suffix.lower()[1:]
     }
+
+def _parse_hex_color(color_value: str) -> Tuple[int, int, int]:
+    """Parse a hex color string like '#RRGGBB' or 'RRGGBB' to an RGB tuple.
+
+    Raises ValueError on invalid inputs.
+    """
+    if color_value is None:
+        raise ValueError("background_color cannot be None; expected '#RRGGBB' or 'RRGGBB'")
+    hex_str = color_value.strip()
+    if hex_str.startswith('#'):
+        hex_str = hex_str[1:]
+    if len(hex_str) != 6 or any(c not in '0123456789abcdefABCDEF' for c in hex_str):
+        raise ValueError("background_color must be a hex color like '#RRGGBB'")
+    return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
 
 def _image_to_base64(file_path: str, max_size: Optional[int] = None) -> str:
     """Convert image to base64 string for preview."""
@@ -958,25 +972,29 @@ def create_collage(
     layout: str = "grid",
     output_path: Optional[str] = None,
     max_width: int = 1200,
-    spacing: int = 10,
+    spacing: int = 4,
     canvas_width: Optional[int] = None,
     canvas_height: Optional[int] = None,
     background_color: str = "#FFFFFF",
     custom_positions: Optional[List[Dict[str, int]]] = None,
     random_seed: Optional[int] = None
 ) -> str:
-    """Create a collage from multiple images with various layout options.
-    
-    Layout options:
-        - "grid": Uniform grid layout (default)
-        - "horizontal": Single row of images
-        - "vertical": Single column of images
-        - "mosaic": Random placement with overlap avoidance
-        - "random": Completely random placement
-        - "custom": Custom positioning with coordinates
-    
-    For mosaic, random, and custom layouts, you can specify canvasWidth and canvasHeight.
-    For custom layout, you must provide customPositions list with {x, y} coordinates for each image.
+    """Create a collage from multiple images.
+
+    Parameters:
+    - image_paths: List of absolute or relative image file paths (min length: 2).
+    - layout: One of {'grid','horizontal','vertical','mosaic','random','custom'}.
+    - output_path: Optional file path to save the collage. Defaults to a temp file.
+    - max_width: Max reference size used to downscale images on load (px).
+    - spacing: Spacing between images for grid/horizontal/vertical layouts (px).
+    - canvas_width, canvas_height: Canvas size (px) required for 'mosaic', 'random', and 'custom'. If omitted, defaults to a square of size max_width for those layouts.
+    - background_color: Hex color string '#RRGGBB' for the canvas background.
+    - custom_positions: Only for 'custom' layout. List of dicts with keys {'x','y'} per image.
+    - random_seed: Optional seed to make 'mosaic'/'random' placements deterministic.
+
+    Notes:
+    - For 'custom', canvas_width and canvas_height are required.
+    - For 'mosaic'/'random', images larger than the canvas will be scaled down to fit.
     """
     if len(image_paths) < 2:
         raise ValueError("At least 2 images are required for a collage")
@@ -988,18 +1006,16 @@ def create_collage(
     if not output_path:
         output_path = str(temp_dir / f"collage_{len(image_paths)}_images.jpg")
     
-    # Load and resize images
-    images = []
+    # Load and resize images (fully materialize to avoid closed/lazy images)
+    images: List[Image.Image] = []
     for path in image_paths:
         with Image.open(path) as img:
-            # Resize to fit within max_width
-            img.thumbnail((max_width // 2, max_width // 2), Image.Resampling.LANCZOS)
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            images.append(img)
+            working = img.convert('RGB') if img.mode != 'RGB' else img
+            working.thumbnail((max_width // 2, max_width // 2), Image.Resampling.LANCZOS)
+            images.append(working.copy())
     
     # Convert background color
-    bg_color = tuple(int(background_color[i:i+2], 16) for i in (1, 3, 5))
+    bg_color = _parse_hex_color(background_color)
     
     # Calculate layout and canvas size
     if layout == "grid":
@@ -1083,19 +1099,26 @@ def create_collage(
             
         positions = []
         for i, img in enumerate(images):
+            # Ensure the image fits on the canvas
+            img_to_paste = img
+            if img.width > canvas_width or img.height > canvas_height:
+                img_to_paste = img.copy()
+                max_w = max(canvas_width - spacing, 1)
+                max_h = max(canvas_height - spacing, 1)
+                img_to_paste.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
             # Try to find a position that doesn't overlap too much
             attempts = 0
             while attempts < 50:
-                x = random.randint(0, canvas_width - img.width)
-                y = random.randint(0, canvas_height - img.height)
+                x = random.randint(0, max(canvas_width - img_to_paste.width, 0))
+                y = random.randint(0, max(canvas_height - img_to_paste.height, 0))
                 
                 # Check overlap with existing images
                 overlap = False
                 for pos in positions:
                     if (x < pos['x'] + pos['width'] + spacing and 
-                        x + img.width + spacing > pos['x'] and
+                        x + img_to_paste.width + spacing > pos['x'] and
                         y < pos['y'] + pos['height'] + spacing and
-                        y + img.height + spacing > pos['y']):
+                        y + img_to_paste.height + spacing > pos['y']):
                         overlap = True
                         break
                 
@@ -1103,8 +1126,8 @@ def create_collage(
                     break
                 attempts += 1
             
-            positions.append({'x': x, 'y': y, 'width': img.width, 'height': img.height})
-            canvas.paste(img, (x, y))
+            positions.append({'x': x, 'y': y, 'width': img_to_paste.width, 'height': img_to_paste.height})
+            canvas.paste(img_to_paste, (x, y))
             
     elif layout == "random":
         # Random placement without overlap checking
@@ -1113,9 +1136,15 @@ def create_collage(
             random.seed(random_seed)
             
         for img in images:
-            x = random.randint(0, canvas_width - img.width)
-            y = random.randint(0, canvas_height - img.height)
-            canvas.paste(img, (x, y))
+            img_to_paste = img
+            if img.width > canvas_width or img.height > canvas_height:
+                img_to_paste = img.copy()
+                max_w = max(canvas_width - spacing, 1)
+                max_h = max(canvas_height - spacing, 1)
+                img_to_paste.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
+            x = random.randint(0, max(canvas_width - img_to_paste.width, 0))
+            y = random.randint(0, max(canvas_height - img_to_paste.height, 0))
+            canvas.paste(img_to_paste, (x, y))
             
     elif layout == "custom":
         # Custom positioning
@@ -1150,13 +1179,13 @@ def create_collage_template(
     background_color: str = "#FFFFFF"
 ) -> str:
     """Create a collage using predefined templates.
-    
-    Available templates:
-        - "photo_wall": Classic photo wall with 6 images in 2x3 grid
-        - "storyboard": Horizontal storyboard layout for 6 images
-        - "featured": Featured layout with one large image and 4 smaller ones
-        - "instagram_grid": Perfect 3x3 grid for Instagram
-        - "polaroid": Scattered polaroid-style layout
+
+    Parameters:
+    - image_paths: List of image file paths (min length: 2).
+    - template: One of {'photo_wall','storyboard','featured','instagram_grid','polaroid'}.
+    - output_path: Optional file path to save the collage. Defaults to a temp file.
+    - max_width: Base width used by certain templates; canvas is auto-sized to fit positions.
+    - background_color: Hex color string '#RRGGBB' for the canvas background.
     """
     if len(image_paths) < 2:
         raise ValueError("At least 2 images are required for a collage")
@@ -1168,16 +1197,15 @@ def create_collage_template(
     if not output_path:
         output_path = str(temp_dir / f"collage_template_{template}_{len(image_paths)}_images.jpg")
     
-    # Load and resize images
-    images = []
+    # Load images (fully materialize)
+    images: List[Image.Image] = []
     for path in image_paths:
         with Image.open(path) as img:
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            images.append(img)
+            working = img.convert('RGB') if img.mode != 'RGB' else img
+            images.append(working.copy())
     
     # Convert background color
-    bg_color = tuple(int(background_color[i:i+2], 16) for i in (1, 3, 5))
+    bg_color = _parse_hex_color(background_color)
     
     # Define templates
     templates = {
@@ -1248,9 +1276,14 @@ def create_collage_template(
         raise ValueError(f"Template '{template}' not found. Available templates: {list(templates.keys())}")
     
     template_config = templates[template]
-    canvas_width = template_config["canvas_width"]
-    canvas_height = template_config["canvas_height"]
     positions = template_config["positions"]
+    # Compute canvas size to always fit positions
+    positions_max_w = max(p["x"] + p["width"] for p in positions)
+    positions_max_h = max(p["y"] + p["height"] for p in positions)
+    config_w = template_config.get("canvas_width", positions_max_w)
+    config_h = template_config.get("canvas_height", positions_max_h)
+    canvas_width = max(config_w, positions_max_w)
+    canvas_height = max(config_h, positions_max_h)
     
     # Create canvas
     canvas = Image.new('RGB', (canvas_width, canvas_height), bg_color)
@@ -1401,11 +1434,11 @@ def list_collage_templates() -> str:
             "polaroid": "Scattered polaroid-style layout"
         },
         "custom_options": {
-            "canvasWidth": "Custom canvas width for mosaic/random/custom layouts",
-            "canvasHeight": "Custom canvas height for mosaic/random/custom layouts",
-            "backgroundColor": "Background color in hex format (e.g., '#FFFFFF')",
-            "customPositions": "List of {x, y} coordinates for custom layout",
-            "randomSeed": "Seed for reproducible random layouts",
+            "canvas_width": "Custom canvas width for mosaic/random/custom layouts",
+            "canvas_height": "Custom canvas height for mosaic/random/custom layouts",
+            "background_color": "Background color in hex format (e.g., '#FFFFFF')",
+            "custom_positions": "List of {x, y} coordinates for custom layout",
+            "random_seed": "Seed for reproducible random layouts",
             "spacing": "Spacing between images in grid layouts"
         }
     }
