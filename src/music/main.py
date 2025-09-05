@@ -20,10 +20,17 @@ import pretty_midi
 from pydub import AudioSegment
 from pydub.effects import normalize
 from mcp.server.fastmcp import FastMCP
-from mcp.types import JSONRPCError, INVALID_PARAMS, INTERNAL_ERROR, TextContent, AudioContent
+from mcp.types import JSONRPCError, INVALID_PARAMS, INTERNAL_ERROR, TextContent, AudioContent, ErrorData
 
 # Create MCP server
 mcp = FastMCP("music-creator")
+
+def _raise_error(code: int, message: str):
+    """Helper to raise MCP errors correctly"""
+    if code == INVALID_PARAMS:
+        raise ValueError(message)
+    else:
+        raise RuntimeError(message)
 
 # Temp directory management
 _temp_dir = tempfile.mkdtemp(prefix="music_creator_")
@@ -64,11 +71,11 @@ DRUM_PATTERNS = {
 def _validate_path(path: str) -> str:
     """Validate file path and format"""
     if not os.path.exists(path):
-        raise JSONRPCError(INVALID_PARAMS, f"File not found: {path}")
+        _raise_error(INVALID_PARAMS, f"File not found: {path}")
     
     ext = Path(path).suffix.lower()
     if ext not in ALL_FORMATS:
-        raise JSONRPCError(INVALID_PARAMS, f"Unsupported format {ext}")
+        _raise_error(INVALID_PARAMS, f"Unsupported format {ext}")
     
     return path
 
@@ -78,7 +85,7 @@ def _load_audio(path: str) -> AudioSegment:
     try:
         return AudioSegment.from_file(path)
     except Exception as e:
-        raise JSONRPCError(INTERNAL_ERROR, f"Failed to load audio: {str(e)}")
+        _raise_error(INTERNAL_ERROR, f"Failed to load audio: {str(e)}")
 
 def _generate_output_path(input_path: str, suffix: str = "_processed", output_path: Optional[str] = None, ext: str = None) -> str:
     """Generate output path if not provided"""
@@ -123,7 +130,7 @@ def _get_file_info(path: str) -> Dict[str, Any]:
                     "sample_width": 2
                 })
             except Exception as e:
-                raise JSONRPCError(INTERNAL_ERROR, f"Could not analyze audio: {str(e)}")
+                _raise_error(INTERNAL_ERROR, f"Could not analyze audio: {str(e)}")
     
     elif ext in SUPPORTED_MIDI_FORMATS:
         try:
@@ -135,36 +142,86 @@ def _get_file_info(path: str) -> Dict[str, Any]:
                 "note_count": sum(len(inst.notes) for inst in midi_data.instruments)
             })
         except Exception as e:
-            raise JSONRPCError(INTERNAL_ERROR, f"Could not analyze MIDI: {str(e)}")
+            _raise_error(INTERNAL_ERROR, f"Could not analyze MIDI: {str(e)}")
     
     return info
 
 
 def _audio_result(output_path: str, additional_info: Optional[Dict[str, Any]] = None) -> List[Any]:
     """Create MCP content blocks for audio files"""
+    try:
+        file_info = _get_file_info(output_path)
+    except Exception:
+        # Fallback info if file analysis fails
+        file_info = {
+            "path": output_path,
+            "size_bytes": os.path.getsize(output_path),
+            "format": Path(output_path).suffix.lower()[1:],
+            "filename": Path(output_path).name
+        }
+    
     summary = {
         "output_path": output_path,
-        "info": _get_file_info(output_path)
+        "info": file_info
     }
     
     if additional_info:
         summary.update(additional_info)
     
-    # Read audio file and encode as base64
-    with open(output_path, 'rb') as f:
-        audio_data = base64.b64encode(f.read()).decode('utf-8')
-    
-    # Determine MIME type from file extension
+    # Check if this is a MIDI file and convert to WAV for webui playback
     ext = Path(output_path).suffix.lower()[1:]
-    mime_type_map = {
-        'mp3': 'audio/mpeg',
-        'wav': 'audio/wav',
-        'flac': 'audio/flac',
-        'ogg': 'audio/ogg',
-        'm4a': 'audio/mp4',
-        'aiff': 'audio/aiff'
-    }
-    mime_type = mime_type_map.get(ext, 'audio/mpeg')
+    if ext in ['mid', 'midi']:
+        # Convert MIDI to WAV for webui playback
+        wav_path = str(Path(output_path).with_suffix('.wav'))
+        try:
+            # Convert MIDI to audio using pretty_midi
+            midi_data = pretty_midi.PrettyMIDI(output_path)
+            audio_data = midi_data.synthesize(fs=44100)
+            
+            # Convert to pydub AudioSegment and export as WAV
+            audio_data = (audio_data * 32767).astype(np.int16)  # Convert to 16-bit
+            audio = AudioSegment(
+                audio_data.tobytes(),
+                frame_rate=44100,
+                sample_width=2,
+                channels=1
+            )
+            audio.export(wav_path, format='wav')
+            
+            # Use the WAV file for the audio content
+            with open(wav_path, 'rb') as f:
+                audio_data = base64.b64encode(f.read()).decode('utf-8')
+            
+            # Update summary to include both MIDI and WAV paths
+            summary['midi_path'] = output_path
+            summary['audio_path'] = wav_path
+            summary['converted'] = True
+            
+            # Clean up the temporary WAV file
+            os.unlink(wav_path)
+            
+            mime_type = 'audio/wav'
+        except Exception as e:
+            # If conversion fails, fall back to MIDI file
+            with open(output_path, 'rb') as f:
+                audio_data = base64.b64encode(f.read()).decode('utf-8')
+            mime_type = 'audio/midi'
+            summary['conversion_error'] = str(e)
+    else:
+        # For non-MIDI files, read directly
+        with open(output_path, 'rb') as f:
+            audio_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Determine MIME type from file extension
+        mime_type_map = {
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'flac': 'audio/flac',
+            'ogg': 'audio/ogg',
+            'm4a': 'audio/mp4',
+            'aiff': 'audio/aiff'
+        }
+        mime_type = mime_type_map.get(ext, 'audio/mpeg')
     
     return [
         AudioContent(type='audio', data=audio_data, mimeType=mime_type),
@@ -193,7 +250,7 @@ def create_music(
     tempo: int = 120,
     params: Optional[Dict[str, Any]] = None,
     output_path: Optional[str] = None
-) -> Dict[str, Any]:
+) -> List[Any]:
     """Create music - melodies, chord progressions, or harmonies
     
     Args:
@@ -268,14 +325,12 @@ def create_music(
         # Write to MIDI file
         stream.write('midi', fp=output_path)
         
-        return {
-            "output_path": output_path,
-            "info": _get_file_info(output_path),
+        return _audio_result(output_path, {
             "music_type": music_type,
             "key": key,
             "tempo": tempo,
             "duration": duration
-        }
+        })
         
     except Exception as e:
         raise JSONRPCError(INTERNAL_ERROR, f"Failed to create music: {str(e)}")
@@ -288,7 +343,7 @@ def create_pattern(
     duration: float = 8.0,
     tempo: int = 120,
     output_path: Optional[str] = None
-) -> Dict[str, Any]:
+) -> List[Any]:
     """Create rhythmic patterns - drum beats and percussion
     
     Args:
@@ -349,14 +404,12 @@ def create_pattern(
         # Write to MIDI file
         stream.write('midi', fp=output_path)
         
-        return {
-            "output_path": output_path,
-            "info": _get_file_info(output_path),
+        return _audio_result(output_path, {
             "pattern_type": pattern_type,
             "style": style,
             "tempo": tempo,
             "duration": duration
-        }
+        })
         
     except Exception as e:
         raise JSONRPCError(INTERNAL_ERROR, f"Failed to create pattern: {str(e)}")

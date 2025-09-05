@@ -13,6 +13,7 @@ dependencies = [
     "pretty_midi>=0.2.9",
     "numpy>=1.24.0",
     "mcp>=1.0.0",
+    "setuptools>=65.0.0",
 ]
 
 [project.scripts]
