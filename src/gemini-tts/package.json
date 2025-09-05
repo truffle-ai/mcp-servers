@@ -1,0 +1,53 @@
+{
+  "name": "@truffle-ai/gemini-tts-server",
+  "version": "0.2.0",
+  "private": false,
+  "description": "A lean and powerful MCP server for Google Gemini Text-to-Speech with multi-speaker support",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Truffle AI",
+  "license": "MIT",
+  "homepage": "https://github.com/truffle-ai/mcp-servers/tree/main/src/gemini-tts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git",
+    "directory": "src/gemini-tts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "@google/generative-ai": "^0.21.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "tts",
+    "text-to-speech",
+    "gemini",
+    "google",
+    "ai",
+    "voice",
+    "audio",
+    "speech-synthesis"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
