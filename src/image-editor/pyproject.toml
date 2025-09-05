@@ -1,16 +1,15 @@
 [project]
 name = "truffle-ai-image-editor-mcp"
-version = "1.0.0"
-description = "MCP server for image editing and processing using OpenCV and Pillow"
+version = "2.0.0"
+description = "MCP server for core image editing operations using OpenCV and Pillow"
 authors = [
     {name = "Truffle AI", email = "founders@trytruffle.ai"}
 ]
 requires-python = ">=3.10"
 dependencies = [
     "opencv-python>=4.8.0",
-    "pillow>=10.0.0",
+    "pillow>=10.0.0", 
     "numpy>=1.24.0",
-    "pydantic>=2.0.0",
     "mcp>=1.0.0",
 ]
 

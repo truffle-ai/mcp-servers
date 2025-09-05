@@ -1,326 +1,139 @@
-# Image Editor MCP Server
+# Image Editor MCP Server v2.0
 
-A comprehensive Model Context Protocol (MCP) server for image editing and processing using industry-standard libraries like OpenCV and Pillow.
+A **lean and ultra-clean** Model Context Protocol (MCP) server for core image editing operations using OpenCV and Pillow.
 
-## Features
+## 🎯 Design Philosophy
 
-### 🖼️ **Viewing & Preview**
-- **Image Preview**: Get base64 previews for display in chat interfaces
-- **System Viewer**: Open images in the system's default image viewer
-- **Image Details**: Show detailed information in a user-friendly format
-- **Thumbnail Generation**: Create quick thumbnail versions
-- **Image Comparison**: Compare two images and highlight differences
-- **Detailed Analysis**: Comprehensive image statistics and color analysis
+This is a complete redesign focused on:
+- **8 core tools** (down from 27+) 
+- **~500 lines** (down from 1450+)
+- **Clear decision tree** structure
+- **Proper MCP error handling**
+- **Zero over-engineering**
 
-### ✂️ **Basic Image Operations**
-- **Resize**: Resize images with aspect ratio preservation
-- **Crop**: Crop images to specified dimensions
-- **Format Conversion**: Convert between JPG, PNG, WebP, BMP, TIFF
+## 🛠️ Core Tools
 
-### 🎨 **Filters & Effects**
-- **Basic**: Blur, sharpen, grayscale, invert
-- **Artistic**: Sepia, vintage, cartoon, sketch
-- **Detection**: Edge detection, emboss
+### 1. Input/Info
+- `load_image(path)` - Load and validate image, return metadata
 
-### ⚙️ **Adjustments**
-- **Brightness**: Adjust brightness (-100 to 100)
-- **Contrast**: Adjust contrast (0.1 to 3.0)
+### 2. Transform  
+- `resize_image(path, width?, height?, keep_aspect=true)` - Resize with aspect ratio control
+- `crop_image(path, x, y, width, height)` - Crop to rectangular region
+- `convert_format(path, format, quality=90)` - Convert between formats
 
-### 📝 **Drawing & Annotations**
-- **Basic Shapes**: Draw rectangles, circles, lines, and arrows
-- **Text Overlay**: Add text with customizable font, size, color, and position
-- **Annotations**: Add text with background for better visibility
-- **Shape Properties**: Control thickness, fill, and positioning
+### 3. Enhance
+- `adjust_image(path, brightness=0, contrast=1.0, saturation=1.0)` - Adjust image properties  
+- `apply_filter(path, filter_type, intensity=1.0)` - Apply filters (blur, sharpen, grayscale, edge, sepia)
 
-### 🔍 **Computer Vision**
-- **Face Detection**: Detect faces using Haar cascades
-- **Edge Analysis**: Analyze edge density and distribution
-- **Contour Detection**: Find and analyze object contours
-- **Circle Detection**: Detect circular objects
-- **Line Detection**: Detect straight lines using Hough transform
+### 4. Annotate
+- `add_annotation(path, type, ...)` - Unified tool for text, rectangles, circles, lines
 
-### 🎯 **Advanced Features**
-- **Collage Creation**: Create collages with multiple layout types and templates
-- **Batch Processing**: Process multiple images with the same operation
-- **Filter Discovery**: List all available filters and effects
-- **Template System**: Predefined layouts for professional collages
+### 5. Advanced
+- `detect_objects(path, detection_type="faces")` - Computer vision detection
+- `create_collage(image_paths, layout="grid")` - Simple collage creation
 
-## Installation & Usage
+## 📋 Key Improvements
 
-### As a Published Package (Recommended)
+**From Bulky to Lean:**
+- Consolidated 27 tools → 8 tools
+- Removed redundant functionality  
+- Single `add_annotation` handles all shapes/text
+- Simple collage layouts only (grid/horizontal/vertical)
 
-Once published to PyPI, you can run the server directly with:
+**Better Architecture:**
+- Proper MCP error types (`McpError`, `ErrorCode`)
+- Consistent parameter naming
+- Smart defaults reduce cognitive load
+- Clear tool categorization
 
-```bash
-uvx truffle-ai-image-editor-mcp
+**Decision Tree Structure:**
+```
+Need to work with images?
+├── Load/validate → load_image()
+├── Change size/format → resize_image(), crop_image(), convert_format()  
+├── Enhance appearance → adjust_image(), apply_filter()
+├── Add markup → add_annotation()
+└── Advanced features → detect_objects(), create_collage()
 ```
 
-### Local Development
+## 🚀 Usage
 
-For local development and testing:
+**Image-producing tools** return `List[Any]` with MCP content blocks:
+- `ImageContent`: Base64-encoded image data for immediate preview
+- `TextContent`: JSON with `output_path` and `info` metadata
 
-```bash
-# Clone or navigate to this directory
-cd /path/to/mcp-servers/src/image-editor
+**Analysis tools** return `Dict[str, Any]` with structured data:
+- `load_image()`: Image metadata (width, height, format, file size)
+- `detect_objects()`: Detection results with counts and locations
 
-# Install dependencies and run
-uv run python main.py
+Error handling uses proper MCP types:
+- `JSONRPCError(INVALID_PARAMS, "message")` for bad input
+- `JSONRPCError(INTERNAL_ERROR, "message")` for processing failures
+
+## 📦 Dependencies
+
+- **opencv-python** - Computer vision and core processing
+- **pillow** - Image manipulation and format handling  
+- **numpy** - Numerical operations
+- **mcp** - Model Context Protocol SDK
+
+## 🎨 Supported Formats
+
+JPG, PNG, WebP, BMP, TIFF
+
+## 🔍 Filters
+
+- `blur` - Gaussian blur with adjustable intensity
+- `sharpen` - Edge enhancement with intensity control
+- `grayscale` - Convert to black & white
+- `edge` - Edge detection using Canny algorithm
+- `sepia` - Vintage sepia tone effect
+- `emboss` - Embossed/raised effect
+- `invert` - Color inversion
+- `posterize` - Reduces color palette for poster-like effect
+
+## 🚀 MCP Prompts (Quick Start!)
+
+The server includes pre-built prompts for common tasks - perfect for first-time users:
+
+### 🎭 **detect_faces_in_image**(image_path)
+Quick face detection with just an image path
+```
+detect_faces_in_image("/path/to/photo.jpg")
 ```
 
-### Testing with uvx
-
-Test the server locally before publishing:
-
-```bash
-# From the image-editor directory
-uvx --from . truffle-ai-image-editor-mcp
+### 📱 **resize_for_social_media**(image_path, platform="instagram") 
+Resize images for social media with perfect dimensions
+```
+resize_for_social_media("/path/to/image.jpg", platform="twitter")
 ```
 
-## MCP Client Configuration
-
-### Saiki Configuration
-
-Add to your `agent.yml`:
-
-```yaml
-mcpServers:
-  image_editor:
-    type: stdio
-    command: uvx
-    args:
-      - truffle-ai-image-editor-mcp
-    connectionMode: strict
+### 🎨 **apply_artistic_filter**(image_path, style="vintage")
+Apply popular artistic effects (vintage, artistic, dramatic, soft)
+```
+apply_artistic_filter("/path/to/photo.jpg", style="dramatic")
 ```
 
-### Claude Desktop Configuration
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "image-editor": {
-      "command": "uvx",
-      "args": ["truffle-ai-image-editor-mcp"]
-    }
-  }
-}
+### 🖼️ **create_photo_collage**(image_paths, layout_style="grid")
+Create collages from multiple images
+```
+create_photo_collage("/img1.jpg, /img2.jpg, /img3.jpg", layout_style="horizontal")
 ```
 
-## Available Tools
-
-### Viewing & Preview Tools
-
-#### `preview_image`
-Get a base64 preview of an image for display in chat interfaces.
-
-**Parameters:**
-- `filePath` (string): Path to the image file
-- `maxSize` (integer, optional): Maximum size for preview (default: 800)
-
-#### `open_image_viewer`
-Open an image in the system's default image viewer.
-
-**Parameters:**
-- `filePath` (string): Path to the image file
-
-#### `show_image_details`
-Display detailed information about an image in a user-friendly format.
-
-**Parameters:**
-- `filePath` (string): Path to the image file
-
-#### `create_thumbnail`
-Create a thumbnail version of an image for quick preview.
-
-**Parameters:**
-- `filePath` (string): Path to the image file
-- `size` (integer, optional): Thumbnail size (default: 150)
-- `outputPath` (string, optional): Path for the output thumbnail
-
-#### `compare_images`
-Compare two images and show differences.
-
-**Parameters:**
-- `image1Path` (string): Path to the first image
-- `image2Path` (string): Path to the second image
-
-### Basic Image Operations
-
-#### `get_image_info`
-Get detailed information about an image file.
-
-**Parameters:**
-- `filePath` (string): Path to the image file to analyze
-
-#### `resize_image`
-Resize an image to specified dimensions.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `outputPath` (string, optional): Path for the output image
-- `width` (integer, optional): Target width in pixels
-- `height` (integer, optional): Target height in pixels
-- `maintainAspectRatio` (boolean, optional): Whether to maintain aspect ratio (default: true)
-- `quality` (integer, optional): Output quality 1-100 (default: 90)
-
-#### `crop_image`
-Crop an image to specified dimensions.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `outputPath` (string, optional): Path for the output image
-- `x` (integer): Starting X coordinate for cropping
-- `y` (integer): Starting Y coordinate for cropping
-- `width` (integer): Width of the crop area
-- `height` (integer): Height of the crop area
-
-#### `convert_format`
-Convert an image to a different format.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `outputPath` (string, optional): Path for the output image
-- `format` (string): Target format (jpg, jpeg, png, webp, bmp, tiff)
-- `quality` (integer, optional): Output quality 1-100 for lossy formats (default: 90)
-
-### Filters & Effects
-
-#### `apply_filter`
-Apply various filters and effects to an image.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `outputPath` (string, optional): Path for the output image
-- `filter` (string): Type of filter (blur, sharpen, grayscale, sepia, invert, edge_detection, emboss, vintage, cartoon, sketch)
-- `intensity` (number, optional): Filter intensity 0.1-5.0 (default: 1.0)
-
-#### `list_available_filters`
-List all available image filters and effects.
-
-**Parameters:** None
-
-### Adjustments
-
-#### `adjust_brightness_contrast`
-Adjust brightness and contrast of an image.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `outputPath` (string, optional): Path for the output image
-- `brightness` (number, optional): Brightness adjustment -100 to 100 (default: 0)
-- `contrast` (number, optional): Contrast multiplier 0.1 to 3.0 (default: 1.0)
-
-### Text & Overlays
-
-#### `add_text_to_image`
-Add text overlay to an image.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `outputPath` (string, optional): Path for the output image
-- `text` (string): Text to add to the image
-- `x` (integer): X coordinate for text placement
-- `y` (integer): Y coordinate for text placement
-- `fontSize` (integer, optional): Font size in pixels (default: 30)
-- `color` (string, optional): Text color in hex format (default: "#FFFFFF")
-
-### Computer Vision
-
-#### `detect_objects`
-Detect objects in an image using OpenCV.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-- `detectionType` (string): Type of detection (faces, edges, contours, circles, lines)
-
-#### `analyze_image`
-Analyze image statistics and properties.
-
-**Parameters:**
-- `inputPath` (string): Path to the input image file
-
-### Advanced Features
-
-#### `create_collage`
-Create a collage from multiple images.
-
-**Parameters:**
-- `imagePaths` (array): List of image file paths
-- `layout` (string, optional): Layout type (grid, horizontal, vertical) (default: grid)
-- `outputPath` (string, optional): Path for the output collage
-- `maxWidth` (integer, optional): Maximum width for individual images (default: 1200)
-- `spacing` (integer, optional): Spacing between images (default: 10)
-
-#### `batch_process`
-Process multiple images with the same operation.
-
-**Parameters:**
-- `inputPaths` (array): List of input image paths
-- `operation` (string): Operation type (resize, filter, brightness_contrast, convert)
-- `outputDirectory` (string, optional): Output directory for processed images
-- Additional parameters depend on the operation type
-
-## Supported Image Formats
-
-- **JPEG/JPG**: Lossy compression, good for photos
-- **PNG**: Lossless compression, good for graphics with transparency
-- **WebP**: Modern format with good compression
-- **BMP**: Uncompressed bitmap format
-- **TIFF**: High-quality format for professional use
-
-## Dependencies
-
-- **OpenCV**: Computer vision operations and image processing
-- **Pillow**: Image manipulation and text rendering
-- **NumPy**: Numerical operations
-- **MCP**: Model Context Protocol server implementation
-
-## Troubleshooting
-
-### Common Issues
-
-1. **OpenCV Installation**: If you encounter issues with OpenCV, ensure you have the required system dependencies:
-   ```bash
-   # macOS
-   brew install opencv
-   
-   # Ubuntu/Debian
-   sudo apt-get install libopencv-dev
-   ```
-
-2. **Font Issues**: If text rendering fails, the server will fall back to the default font.
-
-3. **Memory Issues**: For large images, consider resizing before processing to avoid memory constraints.
-
-4. **Path Issues**: Ensure all file paths are absolute or correctly relative to the working directory.
-
-## Development
-
-### Running Tests
-```bash
-uv run python main.py
+### 🔄 **quick_format_conversion**(image_path, target_format="jpg")
+Convert image formats with optimal quality
+```
+quick_format_conversion("/path/to/image.png", target_format="webp")
 ```
 
-### Building and Publishing
-
-```bash
-# Build the package
-uv build
-
-# Publish to PyPI
-uv publish
-
-# Or publish to TestPyPI first
-uv publish --repository testpypi
+### 📊 **analyze_image_quickly**(image_path)
+Get quick analysis and detect people in images
+```
+analyze_image_quickly("/path/to/photo.jpg")
 ```
 
-### Code Formatting
-```bash
-uv run black main.py
-uv run ruff check main.py
-```
+**Usage**: These prompts provide user-facing instructions that guide the LLM/agent to accomplish tasks. All prompt parameters are optional with helpful fallback messages when not provided.
 
-## License
+## 🧪 Testing
 
-This project is part of the Saiki AI agent framework. 
+The server validates all inputs and provides clear error messages. Temporary files are auto-cleaned on exit.

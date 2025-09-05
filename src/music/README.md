@@ -1,74 +1,152 @@
-# Music Creator MCP Server
+# Music Creator MCP Server v2.0
 
-A comprehensive Model Context Protocol (MCP) server for music creation, editing, and audio processing using industry-standard Python libraries like librosa, pydub, and music21.
+A **lean and ultra-clean** Model Context Protocol (MCP) server for core music creation and audio processing operations.
 
-## Overview
+## 🎯 Design Philosophy
 
-This MCP server provides a complete suite of tools for music production, from basic audio editing to advanced music generation and analysis. It's designed to be used with MCP clients like Claude Desktop, Saiki, or any other MCP-compatible application.
+This is a complete redesign focused on:
+- **8 core tools** (down from 25+)
+- **~650 lines** (down from 1179+)
+- **Clear decision tree** structure
+- **Proper MCP error handling**
+- **Minimal dependencies**
+- **Zero over-engineering**
 
-## Features
+## 🛠️ Core Tools
 
-### 🎵 Audio Analysis
-- **Tempo Detection**: Automatically detect BPM and beat positions
-- **Key Detection**: Identify musical key and mode
-- **Spectral Analysis**: Analyze frequency spectrum, MFCC features, and audio characteristics
-- **Comprehensive Analysis**: Get detailed audio information including duration, sample rate, and format
+### 1. Input/Info
+- `load_audio(path)` - Load and analyze audio/MIDI files, return metadata
 
-### 🎼 Music Generation
-- **Melody Creation**: Generate melodies in any key and scale
-- **Chord Progressions**: Create chord progressions using Roman numeral notation
-- **Drum Patterns**: Generate drum patterns for rock, jazz, and funk styles
-- **MIDI Export**: All generated music exports to MIDI format for further editing
+### 2. Generate  
+- `create_music(type="melody", key="C", duration=10, tempo=120, params={})` - Create melodies, chord progressions, harmonies
+- `create_pattern(type="drums", style="rock", duration=8, tempo=120)` - Generate drum patterns and rhythms
 
-### 🔊 Audio Processing
-- **Format Conversion**: Convert between MP3, WAV, FLAC, OGG, M4A, AIFF, WMA
-- **Volume Control**: Adjust audio levels with precise dB control
-- **Audio Normalization**: Normalize audio to target levels
-- **Audio Trimming**: Cut audio to specific time ranges
-- **Audio Effects**: Apply reverb, echo, distortion, and filters
+### 3. Process
+- `convert_audio(path, format, quality=90)` - Convert between audio formats (MP3, WAV, FLAC, OGG, M4A)
+- `adjust_audio(path, volume=0, normalize=False, trim_start=0, trim_end=None)` - Volume, normalization, and trimming in one tool
+- `apply_effect(path, effect_type, intensity=1.0, params={})` - Audio effects (reverb, echo, distortion, fades, reverse)
 
-### 🎚️ Mixing & Arrangement
-- **Audio Merging**: Combine multiple audio files with crossfade support
-- **Multi-track Mixing**: Mix multiple audio tracks with individual volume control
-- **Batch Processing**: Process multiple files with the same operation
+### 4. Analyze
+- `analyze_music(path, analysis_type="basic")` - Tempo, key, and spectral analysis with type selection
 
-## Installation & Usage
+### 5. Mix
+- `mix_tracks(paths, volumes=[], output_format="wav")` - Mix multiple tracks with volume control
 
-### As a Published Package (Recommended)
+## 📋 Key Improvements
 
-Once published to PyPI, you can run the server directly with:
+**From Bulky to Lean:**
+- Consolidated 25+ tools → 8 tools
+- Removed unnecessary dependencies (matplotlib, scipy, sklearn, pygame)
+- Single `create_music()` handles melodies, chords, harmonies with type parameter
+- One `adjust_audio()` tool vs 3 separate volume/normalize/trim tools
+- Unified `analyze_music()` vs multiple analysis tools
 
-```bash
-uvx truffle-ai-music-creator-mcp
+**Better Architecture:**
+- Proper MCP error types (`McpError`, `ErrorCode`)
+- Consistent parameter naming and defaults
+- No playback functionality (not suitable for MCP server environment)
+- Smart music generation templates for common progressions and patterns
+- Clear tool categorization
+
+**Decision Tree Structure:**
+```
+Need to work with music/audio?
+├── Load/validate → load_audio()
+├── Create music → create_music(), create_pattern()  
+├── Process audio → convert_audio(), adjust_audio(), apply_effect()
+├── Analyze → analyze_music()
+└── Mix → mix_tracks()
 ```
 
-### Local Development
+## 🚀 Usage
 
-For local development and testing:
+**All tools** return `Dict[str, Any]` with structured data:
+- `output_path`: Path to generated/processed file
+- `info`: File metadata (duration, format, size, etc.)
+- Additional fields specific to each tool (tempo, key, effect_type, etc.)
 
-```bash
-# Clone or navigate to this directory
-cd /path/to/mcp-servers/src/music
+Error handling uses proper MCP types:
+- `JSONRPCError(INVALID_PARAMS, "message")` for bad input
+- `JSONRPCError(INTERNAL_ERROR, "message")` for processing failures
 
-# Install dependencies and run
-uv run python main.py
+## 🚀 Usage Examples
+
+**Music Generation:**
+```python
+# Create a melody in G major
+create_music(music_type="melody", key="G", duration=15, tempo=140, params={"scale": "major"})
+
+# Create pop chord progression  
+create_music(music_type="chords", key="C", duration=12, params={"progression": "pop"})
+
+# Create rock drum pattern
+create_pattern(pattern_type="drums", style="rock", duration=8, tempo=120)
 ```
 
-### Testing with uvx
-
-Test the server locally before publishing:
-
-```bash
-# From the music directory
-uvx --from . music-creator-mcp
+**Audio Processing:**
+```python
+# Convert and adjust in sequence
+convert_audio("song.mp3", format="wav")
+adjust_audio("song.wav", volume=3, normalize=True, trim_start=10, trim_end=60)
+apply_effect("song.wav", effect_type="reverb", intensity=2.0)
 ```
 
-## MCP Client Configuration
+**Music Analysis:**
+```python
+# Basic analysis (tempo + key)
+analyze_music("track.wav", analysis_type="basic")
+
+# Detailed spectral analysis  
+analyze_music("track.wav", analysis_type="spectral")
+```
+
+**Multi-track Mixing:**
+```python
+# Mix vocals, guitar, and drums
+mix_tracks(["vocals.wav", "guitar.wav", "drums.wav"], volumes=[3, -2, 0], output_format="mp3")
+
+# Mix MIDI melody with audio drum loop
+mix_tracks(["melody.mid", "drums.wav"], volumes=[0, -5])
+```
+
+## 📦 Dependencies (Lean!)
+
+- **librosa** - Audio analysis and music information retrieval
+- **pydub** - Audio file manipulation and processing  
+- **music21** - Music notation and generation
+- **pretty_midi** - MIDI file handling
+- **numpy** - Numerical operations
+- **mcp** - Model Context Protocol SDK
+
+**Removed Dependencies:** matplotlib, scipy, sklearn, pygame, soundfile, audioread, resampy
+
+## 🎵 Supported Features
+
+### Music Generation
+- **Melodies** - Any key/scale with random note generation
+- **Chord Progressions** - Pop, rock, jazz, folk, blues templates or custom progressions
+- **Drum Patterns** - Rock, funk, jazz styles with realistic timing
+
+### Audio Formats
+- **Input/Output**: MP3, WAV, FLAC, OGG, M4A, AIFF
+- **MIDI**: MID, MIDI files with audio conversion
+
+### Audio Effects  
+- **reverb** - Add spatial depth
+- **echo** - Delay-based effect
+- **distortion** - Add harmonic distortion
+- **fade_in/fade_out** - Smooth transitions
+- **reverse** - Reverse audio playback
+
+### Analysis Types
+- **basic** - Tempo and key detection
+- **tempo** - Detailed BPM and beat analysis  
+- **key** - Musical key with confidence rating
+- **spectral** - Frequency domain analysis
+
+## 🏗️ Installation & Configuration
 
 ### Saiki Configuration
-
-Add to your `agent.yml`:
-
 ```yaml
 mcpServers:
   music_creator:
@@ -76,13 +154,9 @@ mcpServers:
     command: uvx
     args:
       - truffle-ai-music-creator-mcp
-    connectionMode: strict
 ```
 
-### Claude Desktop Configuration
-
-Add to your `claude_desktop_config.json`:
-
+### Claude Desktop Configuration  
 ```json
 {
   "mcpServers": {
@@ -94,160 +168,92 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-## Available Tools
+## 🚀 MCP Prompts (Quick Start!)
 
-### Music Generation
-- `create_melody` - Generate melodies in any key and scale
-- `create_chord_progression` - Create chord progressions using Roman numerals
-- `create_drum_pattern` - Generate drum patterns for different styles
+The server includes pre-built prompts for common tasks - perfect for first-time users:
 
-### Audio Analysis
-- `analyze_audio` - Comprehensive audio analysis
-- `detect_tempo` - Detect BPM and beat positions
-- `detect_key` - Identify musical key and mode
-- `get_audio_info` - Get detailed audio file information
-- `get_midi_info` - Get detailed MIDI file information
-
-### Audio Processing
-- `convert_audio_format` - Convert between audio formats
-- `convert_midi_to_audio` - Convert MIDI files to audio
-- `adjust_volume` - Adjust audio levels in dB
-- `normalize_audio` - Normalize audio to target levels
-- `trim_audio` - Cut audio to specific time ranges
-- `apply_audio_effect` - Apply reverb, echo, distortion, filters
-
-### Mixing & Arrangement
-- `merge_audio_files` - Combine multiple audio files
-- `mix_audio_files` - Mix tracks with individual volume control
-
-### Playback
-- `play_audio` - Play audio files with optional start time and duration
-- `play_midi` - Play MIDI files with optional start time and duration
-
-### Utility
-- `list_available_effects` - List all audio effects
-- `list_drum_patterns` - List available drum patterns
-
-## Supported Formats
-
-### Audio Formats
-- **MP3**: Most common compressed format
-- **WAV**: Uncompressed high-quality audio
-- **FLAC**: Lossless compressed audio
-- **OGG**: Open-source compressed format
-- **M4A**: Apple's compressed format
-- **AIFF**: Apple's uncompressed format
-- **WMA**: Windows Media Audio
-
-### MIDI Formats
-- **MID**: Standard MIDI files
-- **MIDI**: Alternative MIDI extension
-
-## Example Usage
-
-### Audio Analysis
+### 🎵 **create_catchy_melody**(key="C", mood="happy")
+Create melodies with different moods and keys
 ```
-"Analyze the tempo and key of my song.mp3"
-"What's the BPM of this track?"
-"What key is this song in?"
+create_catchy_melody(key="G", mood="energetic")
 ```
 
-### Music Generation
+### 🎼 **generate_chord_progression**(genre="pop", key="C")
+Generate chord progressions for popular music genres
 ```
-"Create a melody in G major at 140 BPM for 15 seconds"
-"Create a I-IV-V-I chord progression in D major"
-"Create a basic rock drum pattern"
-```
-
-### Audio Processing
-```
-"Convert my song.wav to MP3 format"
-"Increase the volume of my vocals by 3dB"
-"Normalize my guitar track to -18dB"
-"Trim my song from 30 seconds to 2 minutes"
+generate_chord_progression(genre="jazz", key="Fm")
 ```
 
-### Audio Effects
+### 🥁 **make_drum_beat**(style="rock", tempo=120)
+Create drum patterns for different music styles
 ```
-"Add reverb to my guitar with 200ms reverb time"
-"Add echo to my vocals with 500ms delay and 0.7 decay"
-"Add some distortion to my bass track"
-```
-
-### Mixing & Playback
-```
-"Mix my vocals, guitar, and drums together with the vocals at +3dB"
-"Mix a MIDI melody with an MP3 drum loop"
-"Play my song.mp3 starting from 30 seconds for 10 seconds"
+make_drum_beat(style="funk", tempo=110)
 ```
 
-## Dependencies
+### 🔍 **analyze_song_info**(audio_path, analysis_depth="basic")
+Analyze audio files for tempo, key, and musical information
+```
+analyze_song_info("/path/to/song.mp3", analysis_depth="detailed")
+```
 
-### Core Libraries
-- **librosa**: Audio analysis and music information retrieval
-- **pydub**: Audio file manipulation and processing
-- **music21**: Music notation and analysis
-- **pretty_midi**: MIDI file handling
-- **numpy**: Numerical computing
-- **scipy**: Scientific computing
-- **matplotlib**: Plotting and visualization
+### 🔄 **convert_midi_to_audio**(midi_path, audio_format="wav")
+Convert MIDI files to audio format for playback
+```
+convert_midi_to_audio("/path/to/melody.mid", audio_format="mp3")
+```
 
-### Optional Dependencies
-- **pygame**: For audio and MIDI playback
-- **ffmpeg**: For enhanced audio format support (recommended)
+### 🎧 **quick_track_mixing**(audio_paths, mix_style="balanced")
+Mix multiple audio tracks with smart volume balancing
+```
+quick_track_mixing("/vocals.wav, /guitar.wav, /drums.wav", mix_style="vocal_focus")
+```
 
-## Development
+### 🎤 **create_simple_song**(key="G", genre="pop")
+Create complete songs with melody, chords, and drums
+```
+create_simple_song(key="Am", genre="folk")
+```
 
-### Local Testing
+**Usage**: These prompts provide user-facing instructions that guide the LLM/agent to accomplish music creation tasks. All prompt parameters are optional with helpful fallback messages when not provided.
 
+## 🧪 Testing
+
+The server validates all inputs and provides clear error messages. Temporary files are auto-cleaned on exit.
+
+### Development Testing
 ```bash
-# Install dependencies
+# Install and test
 uv sync
+uv run python main.py
 
-# Run tests
+# Test basic functionality
 uv run python test_functions.py
-
-# Format code
-uv run black main.py
-uv run ruff check main.py
 ```
 
-### Building and Publishing
+## 🔧 Advanced Usage
 
-```bash
-# Build the package
-uv build
+### Custom Chord Progressions
+```python
+# Use custom Roman numeral notation
+create_music(music_type="chords", key="Am", params={"progression": "i-iv-V-i"})
 
-# Publish to PyPI. Do this from 'music' directory
-uv publish
-
-# Or publish to TestPyPI first
-uv publish --repository testpypi
+# Or use template names
+create_music(music_type="chords", key="G", params={"progression": "jazz"})
 ```
 
-## Troubleshooting
+### Effect Chaining
+```python
+# Apply multiple effects in sequence
+apply_effect("guitar.wav", "distortion", intensity=0.8)
+apply_effect("guitar_distortion.wav", "reverb", intensity=1.5)
+```
 
-### Common Issues
+### MIDI to Audio Workflow  
+```python
+# Generate MIDI, convert to audio, then mix
+create_music(music_type="melody", key="F", output_path="melody.mid")
+convert_audio("melody.mid", format="wav")  
+mix_tracks(["melody.wav", "backing_track.mp3"])
+```
 
-1. **FFmpeg warnings**: These can be safely ignored. The server includes fallback methods using librosa and soundfile.
-
-2. **Large audio files**: Consider trimming or converting to smaller formats for faster processing.
-
-3. **Memory usage**: Monitor system memory during heavy audio operations.
-
-4. **pygame dependency**: Required for playback features. Install with: `uv add pygame`
-
-### Performance Tips
-
-- Install FFmpeg for optimal audio processing performance
-- Use batch operations for multiple files
-- Monitor system resources during heavy operations
-- Consider using smaller audio formats for faster processing
-
-## License
-
-MIT License - see the main mcp-servers repository for full license details.
-
-## Contributing
-
-This MCP server is part of the Truffle AI MCP servers collection. For contributions, please refer to the main repository guidelines.
+The redesigned server is lean, fast, and focused on essential music operations while maintaining full creative capabilities.
