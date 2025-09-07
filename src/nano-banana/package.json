@@ -1,0 +1,53 @@
+{
+  "name": "@truffle-ai/nano-banana-server",
+  "version": "0.1.0",
+  "private": false,
+  "description": "A powerful MCP server for Google's Nano Banana (Gemini 2.5 Flash Image) - advanced AI image generation and editing",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Truffle AI",
+  "license": "MIT",
+  "homepage": "https://github.com/truffle-ai/mcp-servers/tree/main/src/nano-banana",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git",
+    "directory": "src/nano-banana"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "@google/generative-ai": "^0.21.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "nano-banana",
+    "gemini",
+    "google",
+    "ai",
+    "image-generation",
+    "image-editing",
+    "computer-vision",
+    "generative-ai"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
