@@ -1,8 +1,8 @@
 {
   "name": "@truffle-ai/nano-banana-server",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": false,
-  "description": "A powerful MCP server for Google's Nano Banana (Gemini 2.5 Flash Image) - advanced AI image generation and editing",
+  "description": "MCP server for Google's Gemini 2.5 Flash Image - AI image generation and editing.",
   "type": "module",
   "main": "dist/index.js",
   "bin": "dist/index.js",
@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && chmod +x dist/index.js",
     "test": "echo \"No tests specified\" && exit 0"
   },
   "author": "Truffle AI",
@@ -49,5 +49,11 @@
   ],
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bugs": {
+    "url": "https://github.com/truffle-ai/mcp-servers/issues"
   }
 }

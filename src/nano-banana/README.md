@@ -4,13 +4,6 @@ A lean and powerful Model Context Protocol (MCP) server that exposes the raw cap
 
 ## 🎯 Design Philosophy
 
-This MCP server follows a **lean design principle**:
-- **3 Essential Tools**: Only the most fundamental capabilities
-- **Raw AI Power**: Exposes the full capabilities of Gemini 2.5 Flash Image
-- **Natural Language**: All operations driven by detailed prompts
-- **No Thin Wrappers**: Avoids redundant functions that just repackage the same capability
-- **LLM-Friendly**: Designed for LLMs to leverage the underlying AI model directly
-
 The server provides access to Google's Gemini 2.5 Flash Image model capabilities:
 - **Image Generation**: Create images from detailed text descriptions
 - **Image Processing**: Any editing task through natural language instructions
@@ -38,124 +31,142 @@ The server provides access to Google's Gemini 2.5 Flash Image model capabilities
 - Node.js 18.0.0 or higher
 - Google AI API key (Gemini API access)
 
-### Setup
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+### Environment Setup
 
-2. **Build the server**:
-   ```bash
-   npm run build
-   ```
+Set up your Google AI API key:
 
-3. **Set up API key**:
-   ```bash
-   export GEMINI_API_KEY="your-api-key-here"
-   # or
-   export GOOGLE_GENERATIVE_AI_API_KEY="your-api-key-here"
-   ```
+```bash
+export GEMINI_API_KEY="your-api-key-here"
+# or
+export GOOGLE_GENERATIVE_AI_API_KEY="your-api-key-here"
+```
+
+### Usage in MCP Clients
+
+The server can be used with any MCP-compatible client. The `-y` flag with npx automatically confirms package installation without user prompts, making it ideal for automated environments.
+
+Here are some common configurations:
+
+#### Claude Desktop
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "nano-banana": {
+      "command": "npx",
+      "args": ["-y", "@truffle-ai/nano-banana-server"],
+      "env": {
+        "GEMINI_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+#### Dexto Framework
+Add to your agent configuration:
+
+```yaml
+mcpServers:
+  nano-banana:
+    command: npx
+    args:
+      - -y
+      - "@truffle-ai/nano-banana-server"
+    env:
+      GEMINI_API_KEY: "your-api-key-here"
+```
+
+#### Direct Usage
+Run the server directly using npx:
+
+```bash
+npx -y @truffle-ai/nano-banana-server
+```
+
+The `-y` flag automatically confirms package installation without prompting.
+
+### Development Setup
+
+For development or local modifications:
+
+```bash
+# Clone the repository
+git clone https://github.com/truffle-ai/mcp-servers.git
+cd mcp-servers/src/nano-banana
+
+# Install dependencies
+npm install
+
+# Build the server
+npm run build
+
+# Run in development mode
+npm run dev
+```
 
 ## 📋 Available Tools
+
+The server provides 3 essential tools that expose the raw capabilities of Gemini 2.5 Flash Image:
 
 ### 1. `generate_image`
 Generate new images from text prompts.
 
 **Parameters:**
-- `prompt` (required): Text description of the image to generate
-- `style` (optional): Artistic style (realistic, artistic, cartoon, vintage, etc.)
-- `aspect_ratio` (optional): Aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
-- `output_path` (optional): Output file path
+- `prompt` (required): Text description of the image to generate. Be specific about style, composition, lighting, and any other visual elements.
+- `output_path` (optional): Output file path (auto-generated if not provided)
 
 **Example:**
 ```json
 {
-  "prompt": "A majestic mountain landscape at sunset",
-  "style": "realistic",
-  "aspect_ratio": "16:9"
+  "prompt": "A majestic mountain landscape at sunset in realistic style with dramatic lighting and 16:9 aspect ratio"
 }
 ```
 
-### 2. `edit_image`
-Edit existing images based on text prompts.
+### 2. `process_image`
+Process existing images based on detailed instructions. This tool can handle any image editing task including object removal, background changes, style transfer, adding elements, and more. The key is to provide clear, specific instructions in the prompt.
 
 **Parameters:**
-- `image_path` (required): Path to the input image
-- `prompt` (required): Description of desired edits
-- `edit_type` (optional): Type of edit (modify, add, remove, style_change, background_change)
-- `output_path` (optional): Output file path
+- `image_path` (required): Path to the input image file
+- `prompt` (required): Detailed instruction for what to do with the image
+- `output_path` (optional): Output file path (auto-generated if not provided)
 
-**Example:**
+**Examples:**
 ```json
 {
   "image_path": "/path/to/photo.jpg",
-  "prompt": "Add a rainbow in the sky",
-  "edit_type": "add"
+  "prompt": "Remove the red car in the background"
 }
 ```
 
-### 3. `remove_object`
-Remove specific objects from images.
-
-**Parameters:**
-- `image_path` (required): Path to the input image
-- `object_description` (required): Description of object to remove
-- `output_path` (optional): Output file path
-
-**Example:**
-```json
-{
-  "image_path": "/path/to/photo.jpg",
-  "object_description": "red car in the background"
-}
-```
-
-### 4. `change_background`
-Change the background of an image.
-
-**Parameters:**
-- `image_path` (required): Path to the input image
-- `background_prompt` (required): Description of new background
-- `output_path` (optional): Output file path
-
-**Example:**
 ```json
 {
   "image_path": "/path/to/portrait.jpg",
-  "background_prompt": "beach sunset with palm trees"
+  "prompt": "Change the background to a beach sunset with palm trees"
 }
 ```
 
-### 5. `fuse_images`
-Combine multiple images into one.
+```json
+{
+  "image_path": "/path/to/photo.jpg",
+  "prompt": "Apply Van Gogh painting style with thick brushstrokes and vibrant colors"
+}
+```
+
+### 3. `process_multiple_images`
+Process multiple images together based on detailed instructions. This tool can combine images, create collages, blend compositions, or perform any multi-image operation. Provide clear instructions on how the images should be combined or processed.
 
 **Parameters:**
-- `image_paths` (required): Array of image file paths (minimum 2)
-- `fusion_prompt` (required): Description of how to combine images
-- `output_path` (optional): Output file path
+- `image_paths` (required): Array of image file paths to process together (minimum 2)
+- `prompt` (required): Detailed instruction for how to combine or process the images together
+- `output_path` (optional): Output file path (auto-generated if not provided)
 
 **Example:**
 ```json
 {
   "image_paths": ["/path/to/person.jpg", "/path/to/landscape.jpg"],
-  "fusion_prompt": "Place the person in the landscape as if they were standing there"
-}
-```
-
-### 6. `apply_style_transfer`
-Apply artistic style transfer to images.
-
-**Parameters:**
-- `image_path` (required): Path to the input image
-- `style_reference` (optional): Path to style reference image
-- `style_description` (required): Description of desired style
-- `output_path` (optional): Output file path
-
-**Example:**
-```json
-{
-  "image_path": "/path/to/photo.jpg",
-  "style_description": "Van Gogh painting style with thick brushstrokes"
+  "prompt": "Place the person from the first image into the landscape from the second image, making sure they look natural in the scene with proper lighting and shadows"
 }
 ```
 
@@ -163,51 +174,73 @@ Apply artistic style transfer to images.
 
 Here are some common use cases for the Nano Banana MCP Server:
 
-### Selfie Variations
-Transform selfies into creative variations using the `edit_image` tool:
+### Image Generation
+Create new images from text descriptions:
 ```json
 {
-  "tool": "edit_image",
+  "tool": "generate_image",
   "arguments": {
-    "image_path": "/path/to/selfie.jpg",
-    "prompt": "Transform this into a fantasy character",
-    "edit_type": "style_change"
+    "prompt": "A futuristic cityscape at night with neon lights and flying cars, cyberpunk style"
   }
 }
 ```
 
 ### Object Removal
-Remove unwanted objects using the `remove_object` tool:
+Remove unwanted objects using the `process_image` tool:
 ```json
 {
-  "tool": "remove_object",
+  "tool": "process_image",
   "arguments": {
     "image_path": "/path/to/photo.jpg",
-    "object_description": "power lines and telephone poles"
+    "prompt": "Remove the power lines and telephone poles from the background"
   }
 }
 ```
 
 ### Background Changes
-Change backgrounds using the `change_background` tool:
+Change backgrounds using the `process_image` tool:
 ```json
 {
-  "tool": "change_background",
+  "tool": "process_image",
   "arguments": {
     "image_path": "/path/to/portrait.jpg",
-    "background_prompt": "professional office setting"
+    "prompt": "Change the background to a professional office setting with modern furniture"
+  }
+}
+```
+
+### Style Transfer
+Apply artistic styles using the `process_image` tool:
+```json
+{
+  "tool": "process_image",
+  "arguments": {
+    "image_path": "/path/to/photo.jpg",
+    "prompt": "Apply Van Gogh painting style with thick brushstrokes and vibrant colors"
   }
 }
 ```
 
 ### Figurine Effect
-Create the signature figurine effect using the `edit_image` tool:
+Create the signature figurine effect using the `process_image` tool:
 ```json
 {
-  "tool": "edit_image",
+  "tool": "process_image",
   "arguments": {
     "image_path": "/path/to/photo.jpg",
     "prompt": "Transform this person into a mini figurine displayed on a desk"
+  }
+}
+```
+
+### Multi-Image Composition
+Combine multiple images using the `process_multiple_images` tool:
+```json
+{
+  "tool": "process_multiple_images",
+  "arguments": {
+    "image_paths": ["/path/to/person.jpg", "/path/to/landscape.jpg"],
+    "prompt": "Place the person from the first image into the landscape from the second image, making sure they look natural in the scene"
   }
 }
 ```
@@ -253,10 +286,10 @@ Create the signature figurine effect using the `edit_image` tool:
 ```bash
 # Remove unwanted objects
 {
-  "tool": "remove_object",
+  "tool": "process_image",
   "arguments": {
     "image_path": "/path/to/photo.jpg",
-    "object_description": "tourist in red shirt"
+    "prompt": "Remove the tourist in red shirt from the background"
   }
 }
 ```
@@ -265,10 +298,10 @@ Create the signature figurine effect using the `edit_image` tool:
 ```bash
 # Change background
 {
-  "tool": "change_background",
+  "tool": "process_image",
   "arguments": {
     "image_path": "/path/to/portrait.jpg",
-    "background_prompt": "modern city skyline at night"
+    "prompt": "Change the background to a modern city skyline at night"
   }
 }
 ```
@@ -277,10 +310,10 @@ Create the signature figurine effect using the `edit_image` tool:
 ```bash
 # Apply artistic style
 {
-  "tool": "apply_style_transfer",
+  "tool": "process_image",
   "arguments": {
     "image_path": "/path/to/photo.jpg",
-    "style_description": "watercolor painting with soft edges"
+    "prompt": "Apply watercolor painting style with soft edges and flowing colors"
   }
 }
 ```

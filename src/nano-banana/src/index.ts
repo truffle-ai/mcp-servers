@@ -491,9 +491,7 @@ async function main() {
     console.error('Nano Banana MCP Server running on stdio');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch((error) => {
-        console.error('Fatal error:', error);
-        process.exit(1);
-    });
-}
+main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});
