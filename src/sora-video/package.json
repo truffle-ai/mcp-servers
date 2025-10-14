@@ -1,0 +1,50 @@
+{
+  "name": "@truffle-ai/sora-video-server",
+  "version": "1.0.0",
+  "private": false,
+  "description": "A powerful MCP server for OpenAI Sora video generation with comprehensive video management",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Truffle AI",
+  "license": "MIT",
+  "homepage": "https://github.com/truffle-ai/mcp-servers/tree/main/src/sora-video",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git",
+    "directory": "src/sora-video"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "sora",
+    "openai",
+    "video-generation",
+    "ai",
+    "video",
+    "content-creation"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
