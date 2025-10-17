@@ -29,6 +29,15 @@ A high-quality text-to-speech MCP server using Google Gemini TTS:
 - Multi-language support (24+ languages)
 - Rate limit handling with graceful fallbacks
 
+### 🎬 Sora Video (`src/sora-video/`)
+An advanced AI video generation MCP server powered by OpenAI Sora:
+- Generate realistic videos from text prompts using Sora
+- Flexible duration (4s, 8s, 16s, 32s)
+- Multiple aspect ratios supported: vertical, horizontal, and square
+- Reference-based generation using existing images or videos
+- Progress monitoring and management of video creation jobs
+- Organize and download generated video files
+
 ## Installation
 
 Each server can be installed individually:
