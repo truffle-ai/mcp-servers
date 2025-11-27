@@ -1,0 +1,48 @@
+{
+  "name": "@truffle-ai/gameboy-server",
+  "version": "0.1.0",
+  "private": false,
+  "description": "MCP server for GameBoy emulation - lets AI play GameBoy games like Pokemon",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "author": "Truffle AI",
+  "license": "MIT",
+  "homepage": "https://github.com/truffle-ai/mcp-servers/tree/main/src/gameboy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git",
+    "directory": "src/gameboy"
+  },
+  "keywords": [
+    "mcp",
+    "gameboy",
+    "emulator",
+    "pokemon",
+    "ai",
+    "truffle-ai"
+  ],
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@mcp-ui/server": "^5.13.1",
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "canvas": "^3.1.0",
+    "hono": "^4.6.0",
+    "serverboy": "^0.0.7",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
