@@ -14,6 +14,8 @@ import { stream } from 'hono/streaming';
 import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import * as crypto from 'crypto';
 import { createCanvas, Canvas } from 'canvas';
 import { createRequire } from 'module';
 
@@ -25,8 +27,53 @@ const Gameboy = require('serverboy');
 // --- Configuration ---
 const STREAM_PORT = parseInt(process.env.GAMEBOY_STREAM_PORT || '3100', 10);
 const STREAM_FPS = parseInt(process.env.GAMEBOY_STREAM_FPS || '15', 10);
+const GAMEBOY_HOME = path.join(os.homedir(), '.gameboy-mcp');
+const GAMES_DIR = path.join(GAMEBOY_HOME, 'games');
 
 // --- Types ---
+interface SaveStateMetadata {
+    id: string;
+    name: string;
+    gameName: string;
+    timestamp: string;
+    screenshotBase64: string;
+}
+
+interface InstalledGame {
+    name: string;
+    romPath: string;
+    savesDir: string;
+    installedAt: string;
+}
+
+// --- Helper Functions ---
+function ensureDir(dir: string): void {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+}
+
+function generateId(): string {
+    return crypto.randomBytes(4).toString('hex');
+}
+
+function sanitizeGameName(romPath: string): string {
+    const basename = path.basename(romPath, path.extname(romPath));
+    // Replace non-alphanumeric chars with dashes, lowercase
+    return basename.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase().replace(/^-|-$/g, '');
+}
+
+function getGameDir(gameName: string): string {
+    return path.join(GAMES_DIR, gameName);
+}
+
+function getSavesDir(gameName: string): string {
+    return path.join(getGameDir(gameName), 'saves');
+}
+
+// Initialize directories on startup
+ensureDir(GAMES_DIR);
+
 enum GameBoyButton {
     UP = 'UP',
     DOWN = 'DOWN',
@@ -44,6 +91,7 @@ class GameBoyEmulator {
     private canvas: Canvas;
     private romLoaded: boolean = false;
     private romPath?: string;
+    private gameName?: string;
     private streamActive: boolean = false;
     private streamClients: Set<(frame: Buffer) => void> = new Set();
 
@@ -52,11 +100,180 @@ class GameBoyEmulator {
         this.canvas = createCanvas(160, 144);
     }
 
-    loadRom(romPath: string): void {
-        const rom = fs.readFileSync(romPath);
+    // Install a ROM to the managed games directory
+    installRom(sourcePath: string, customName?: string): InstalledGame {
+        if (!fs.existsSync(sourcePath)) {
+            throw new Error(`ROM file not found: ${sourcePath}`);
+        }
+
+        const gameName = customName || sanitizeGameName(sourcePath);
+        const gameDir = getGameDir(gameName);
+        const destRomPath = path.join(gameDir, 'rom' + path.extname(sourcePath));
+        const savesDir = getSavesDir(gameName);
+
+        // Create directories
+        ensureDir(gameDir);
+        ensureDir(savesDir);
+
+        // Copy ROM if not already there or if source is newer
+        if (!fs.existsSync(destRomPath) ||
+            fs.statSync(sourcePath).mtime > fs.statSync(destRomPath).mtime) {
+            fs.copyFileSync(sourcePath, destRomPath);
+        }
+
+        // Write metadata
+        const metadataPath = path.join(gameDir, 'game.json');
+        const metadata = {
+            name: gameName,
+            originalPath: sourcePath,
+            installedAt: new Date().toISOString(),
+        };
+        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+        return {
+            name: gameName,
+            romPath: destRomPath,
+            savesDir,
+            installedAt: metadata.installedAt,
+        };
+    }
+
+    // Load ROM - installs if from external path, or loads directly if already installed
+    loadRom(romPathOrGameName: string): void {
+        let actualRomPath: string;
+        let gameName: string;
+
+        // Check if it's an installed game name
+        const gameDir = getGameDir(romPathOrGameName);
+        const potentialRomGb = path.join(gameDir, 'rom.gb');
+        const potentialRomGbc = path.join(gameDir, 'rom.gbc');
+
+        if (fs.existsSync(potentialRomGb)) {
+            actualRomPath = potentialRomGb;
+            gameName = romPathOrGameName;
+        } else if (fs.existsSync(potentialRomGbc)) {
+            actualRomPath = potentialRomGbc;
+            gameName = romPathOrGameName;
+        } else if (fs.existsSync(romPathOrGameName)) {
+            // External ROM path - install it first
+            const installed = this.installRom(romPathOrGameName);
+            actualRomPath = installed.romPath;
+            gameName = installed.name;
+        } else {
+            throw new Error(`ROM not found: ${romPathOrGameName}`);
+        }
+
+        const rom = fs.readFileSync(actualRomPath);
         this.gameboy.loadRom(rom);
         this.romLoaded = true;
-        this.romPath = romPath;
+        this.romPath = actualRomPath;
+        this.gameName = gameName;
+    }
+
+    getGameName(): string | undefined {
+        return this.gameName;
+    }
+
+    // Save current emulator state
+    saveState(name?: string): SaveStateMetadata {
+        if (!this.romLoaded || !this.gameName) {
+            throw new Error('No ROM loaded');
+        }
+
+        const savesDir = getSavesDir(this.gameName);
+        ensureDir(savesDir);
+
+        const id = generateId();
+        const stateName = name || `save-${id}`;
+        const timestamp = new Date().toISOString();
+
+        // Get the emulator state (this is a large array with all CPU/memory state)
+        const state = this.gameboy.saveState();
+
+        // Get a screenshot for the save state
+        const screenshotBase64 = this.getScreenAsBase64();
+
+        // Save state data
+        const stateFile = path.join(savesDir, `${id}.state.json`);
+        fs.writeFileSync(stateFile, JSON.stringify(state));
+
+        // Save metadata
+        const metadata: SaveStateMetadata = {
+            id,
+            name: stateName,
+            gameName: this.gameName,
+            timestamp,
+            screenshotBase64,
+        };
+        const metadataFile = path.join(savesDir, `${id}.meta.json`);
+        fs.writeFileSync(metadataFile, JSON.stringify(metadata, null, 2));
+
+        return metadata;
+    }
+
+    // Load a saved state
+    loadState(stateId: string): SaveStateMetadata {
+        if (!this.romLoaded || !this.gameName) {
+            throw new Error('No ROM loaded');
+        }
+
+        const savesDir = getSavesDir(this.gameName);
+        const stateFile = path.join(savesDir, `${stateId}.state.json`);
+        const metadataFile = path.join(savesDir, `${stateId}.meta.json`);
+
+        if (!fs.existsSync(stateFile)) {
+            throw new Error(`Save state not found: ${stateId}`);
+        }
+
+        const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+        const metadata: SaveStateMetadata = JSON.parse(fs.readFileSync(metadataFile, 'utf-8'));
+
+        // Restore the emulator state
+        this.gameboy.returnFromState(state);
+
+        return metadata;
+    }
+
+    // List all save states for a game (defaults to current game)
+    listStates(gameName?: string): SaveStateMetadata[] {
+        const targetGame = gameName || this.gameName;
+        if (!targetGame) {
+            return [];
+        }
+
+        const savesDir = getSavesDir(targetGame);
+        if (!fs.existsSync(savesDir)) {
+            return [];
+        }
+
+        const metaFiles = fs.readdirSync(savesDir).filter(f => f.endsWith('.meta.json'));
+        return metaFiles.map(f => {
+            const content = fs.readFileSync(path.join(savesDir, f), 'utf-8');
+            return JSON.parse(content) as SaveStateMetadata;
+        }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }
+
+    // Delete a save state
+    deleteState(stateId: string, gameName?: string): boolean {
+        const targetGame = gameName || this.gameName;
+        if (!targetGame) {
+            return false;
+        }
+
+        const savesDir = getSavesDir(targetGame);
+        const stateFile = path.join(savesDir, `${stateId}.state.json`);
+        const metadataFile = path.join(savesDir, `${stateId}.meta.json`);
+
+        let deleted = false;
+        if (fs.existsSync(stateFile)) {
+            fs.unlinkSync(stateFile);
+            deleted = true;
+        }
+        if (fs.existsSync(metadataFile)) {
+            fs.unlinkSync(metadataFile);
+            deleted = true;
+        }
+        return deleted;
     }
 
     pressButton(button: GameBoyButton, durationFrames: number = 1): void {
@@ -252,16 +469,10 @@ function getScreen(): ImageContent {
     };
 }
 
-function loadRom(romPath: string): ImageContent {
-    if (!fs.existsSync(romPath)) {
-        throw new Error(`ROM file not found: ${romPath}`);
-    }
-    emulator.loadRom(romPath);
-    // Advance a few frames to initialize
-    for (let i = 0; i < 5; i++) {
+function advanceFrames(count: number): void {
+    for (let i = 0; i < count; i++) {
         emulator.doFrame();
     }
-    return getScreen();
 }
 
 function pressButton(button: GameBoyButton, durationFrames: number): ImageContent {
@@ -278,22 +489,30 @@ function waitFrames(frames: number): ImageContent {
     return getScreen();
 }
 
-function listRoms(): TextContent {
-    const romsDir = path.join(process.cwd(), 'roms');
-    if (!fs.existsSync(romsDir)) {
-        fs.mkdirSync(romsDir, { recursive: true });
+function listInstalledGames(): InstalledGame[] {
+    if (!fs.existsSync(GAMES_DIR)) {
+        return [];
     }
-    const romFiles = fs
-        .readdirSync(romsDir)
-        .filter((file) => file.endsWith('.gb') || file.endsWith('.gbc'))
-        .map((file) => ({
-            name: file,
-            path: path.join(romsDir, file),
-        }));
-    return {
-        type: 'text',
-        text: JSON.stringify(romFiles, null, 2),
-    };
+    const games: InstalledGame[] = [];
+    const dirs = fs.readdirSync(GAMES_DIR);
+    for (const dir of dirs) {
+        const gameDir = path.join(GAMES_DIR, dir);
+        const metadataFile = path.join(gameDir, 'game.json');
+        const romGb = path.join(gameDir, 'rom.gb');
+        const romGbc = path.join(gameDir, 'rom.gbc');
+
+        if (fs.existsSync(metadataFile)) {
+            const metadata = JSON.parse(fs.readFileSync(metadataFile, 'utf-8'));
+            const romPath = fs.existsSync(romGb) ? romGb : romGbc;
+            games.push({
+                name: dir,
+                romPath,
+                savesDir: path.join(gameDir, 'saves'),
+                installedAt: metadata.installedAt,
+            });
+        }
+    }
+    return games.sort((a, b) => new Date(b.installedAt).getTime() - new Date(a.installedAt).getTime());
 }
 
 // --- Tool Definitions ---
@@ -329,17 +548,35 @@ const tools = [
         },
     },
     {
-        name: 'load_rom',
-        description: 'Load a GameBoy ROM file (.gb or .gbc)',
+        name: 'install_rom',
+        description: 'Install a ROM to the managed games directory (~/.gameboy-mcp/games/). Does not load the ROM.',
         inputSchema: {
             type: 'object' as const,
             properties: {
-                rom_path: {
+                source_path: {
                     type: 'string',
-                    description: 'Absolute path to the ROM file',
+                    description: 'Absolute path to the ROM file (e.g., ~/Downloads/pokemon.gb)',
+                },
+                name: {
+                    type: 'string',
+                    description: 'Custom name for the game (optional, defaults to sanitized filename)',
                 },
             },
-            required: ['rom_path'],
+            required: ['source_path'],
+        },
+    },
+    {
+        name: 'load_rom',
+        description: 'Load a GameBoy ROM. Accepts either a game name (from list_games) or an absolute path. If a path is provided, the ROM is automatically installed first.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                game: {
+                    type: 'string',
+                    description: 'Game name (e.g., "pokemon-red") or absolute path to ROM file',
+                },
+            },
+            required: ['game'],
         },
     },
     {
@@ -376,11 +613,70 @@ const tools = [
         },
     },
     {
-        name: 'list_roms',
-        description: 'List all ROM files in the roms/ directory',
+        name: 'list_games',
+        description: 'List all installed games in ~/.gameboy-mcp/games/',
         inputSchema: {
             type: 'object' as const,
             properties: {},
+        },
+    },
+    // Save state tools
+    {
+        name: 'save_state',
+        description: 'Save the current emulator state. Can be restored later with load_state.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'Optional name for the save state (e.g., "before-gym-battle")',
+                },
+            },
+        },
+    },
+    {
+        name: 'load_state',
+        description: 'Load a previously saved state. Requires a ROM to be loaded first.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                state_id: {
+                    type: 'string',
+                    description: 'The ID of the save state to load (from list_states)',
+                },
+            },
+            required: ['state_id'],
+        },
+    },
+    {
+        name: 'list_states',
+        description: 'List all save states for a game.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                game_name: {
+                    type: 'string',
+                    description: 'Game name (optional, defaults to currently loaded game)',
+                },
+            },
+        },
+    },
+    {
+        name: 'delete_state',
+        description: 'Delete a save state.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                state_id: {
+                    type: 'string',
+                    description: 'The ID of the save state to delete',
+                },
+                game_name: {
+                    type: 'string',
+                    description: 'Game name (optional, defaults to currently loaded game)',
+                },
+            },
+            required: ['state_id'],
         },
     },
 ];
@@ -389,7 +685,7 @@ const tools = [
 const server = new Server(
     {
         name: 'gameboy-server',
-        version: '0.2.0',
+        version: '0.3.0',
     },
     {
         capabilities: {
@@ -445,20 +741,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
             }
 
-            case 'load_rom': {
-                const romPath = (args as any)?.rom_path;
-                if (!romPath) {
+            case 'install_rom': {
+                const sourcePath = (args as any)?.source_path;
+                const customName = (args as any)?.name;
+                if (!sourcePath) {
                     return {
-                        content: [{ type: 'text', text: 'Error: rom_path is required' }],
+                        content: [{ type: 'text', text: 'Error: source_path is required' }],
                         isError: true,
                     };
                 }
-                const screen = loadRom(romPath);
+                const installed = emulator.installRom(sourcePath, customName);
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            message: `Installed game "${installed.name}"`,
+                            ...installed,
+                        }, null, 2),
+                    }],
+                };
+            }
+
+            case 'load_rom': {
+                const game = (args as any)?.game;
+                if (!game) {
+                    return {
+                        content: [{ type: 'text', text: 'Error: game is required' }],
+                        isError: true,
+                    };
+                }
+                emulator.loadRom(game);
+                advanceFrames(5); // Initialize
+                const screen = getScreen();
 
                 // Also start HTTP server when ROM is loaded
                 startHttpServer();
 
-                return { content: [screen] };
+                return {
+                    content: [
+                        screen,
+                        { type: 'text', text: `Loaded game: ${emulator.getGameName()}` },
+                    ],
+                };
             }
 
             case 'get_screen': {
@@ -601,6 +925,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     type: 'text',
                     text: JSON.stringify({
                         romLoaded: emulator.isRomLoaded(),
+                        gameName: emulator.getGameName() || null,
                         romPath: emulator.getRomPath() || null,
                         streamActive: emulator.isStreamActive(),
                         streamUrl: httpServer ? `http://localhost:${STREAM_PORT}/stream` : null,
@@ -609,9 +934,105 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 return { content: [result] };
             }
 
-            case 'list_roms': {
-                const result = listRoms();
-                return { content: [result] };
+            case 'list_games': {
+                const games = listInstalledGames();
+                return {
+                    content: [{
+                        type: 'text',
+                        text: games.length > 0
+                            ? JSON.stringify(games, null, 2)
+                            : 'No games installed. Use install_rom or load_rom with a path to install a game.',
+                    }],
+                };
+            }
+
+            case 'save_state': {
+                if (!emulator.isRomLoaded()) {
+                    return {
+                        content: [{ type: 'text', text: 'Error: No ROM loaded' }],
+                        isError: true,
+                    };
+                }
+                const stateName = (args as any)?.name;
+                const metadata = emulator.saveState(stateName);
+                return {
+                    content: [
+                        {
+                            type: 'image',
+                            data: metadata.screenshotBase64,
+                            mimeType: 'image/png',
+                        },
+                        {
+                            type: 'text',
+                            text: JSON.stringify({
+                                message: `Saved state "${metadata.name}"`,
+                                id: metadata.id,
+                                name: metadata.name,
+                                timestamp: metadata.timestamp,
+                            }, null, 2),
+                        },
+                    ],
+                };
+            }
+
+            case 'load_state': {
+                if (!emulator.isRomLoaded()) {
+                    return {
+                        content: [{ type: 'text', text: 'Error: No ROM loaded. Load a ROM first.' }],
+                        isError: true,
+                    };
+                }
+                const stateId = (args as any)?.state_id;
+                if (!stateId) {
+                    return {
+                        content: [{ type: 'text', text: 'Error: state_id is required' }],
+                        isError: true,
+                    };
+                }
+                const metadata = emulator.loadState(stateId);
+                const screen = getScreen();
+                return {
+                    content: [
+                        screen,
+                        {
+                            type: 'text',
+                            text: `Loaded state "${metadata.name}" from ${metadata.timestamp}`,
+                        },
+                    ],
+                };
+            }
+
+            case 'list_states': {
+                const gameName = (args as any)?.game_name;
+                const states = emulator.listStates(gameName);
+                // Return without screenshots to keep response small
+                const statesWithoutScreenshots = states.map(({ screenshotBase64, ...rest }) => rest);
+                return {
+                    content: [{
+                        type: 'text',
+                        text: states.length > 0
+                            ? JSON.stringify(statesWithoutScreenshots, null, 2)
+                            : 'No save states found.',
+                    }],
+                };
+            }
+
+            case 'delete_state': {
+                const stateId = (args as any)?.state_id;
+                const gameName = (args as any)?.game_name;
+                if (!stateId) {
+                    return {
+                        content: [{ type: 'text', text: 'Error: state_id is required' }],
+                        isError: true,
+                    };
+                }
+                const deleted = emulator.deleteState(stateId, gameName);
+                return {
+                    content: [{
+                        type: 'text',
+                        text: deleted ? `Deleted save state ${stateId}` : `Save state ${stateId} not found`,
+                    }],
+                };
             }
 
             default:
