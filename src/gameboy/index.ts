@@ -24,6 +24,13 @@ const require = createRequire(import.meta.url);
 // @ts-ignore - serverboy doesn't have types
 const Gameboy = require('serverboy');
 
+// Helper to access serverboy's internal GameBoyCore (stored in private property)
+function getCore(gb: any): any {
+    const privateKey = Object.keys(gb).find(k => k.startsWith('_'));
+    if (!privateKey) throw new Error('Cannot access emulator core');
+    return gb[privateKey].gameboy;
+}
+
 // --- Configuration ---
 const STREAM_PORT = parseInt(process.env.GAMEBOY_STREAM_PORT || '3100', 10);
 const STREAM_FPS = parseInt(process.env.GAMEBOY_STREAM_FPS || '15', 10);
@@ -200,7 +207,8 @@ class GameBoyEmulator {
         const timestamp = new Date().toISOString();
 
         // Get the emulator state (this is a large array with all CPU/memory state)
-        const state = this.gameboy.saveState();
+        const core = getCore(this.gameboy);
+        const state = core.saveState();
 
         // Get a screenshot for the save state
         const screenshotBase64 = this.getScreenAsBase64();
@@ -241,7 +249,8 @@ class GameBoyEmulator {
         const metadata: SaveStateMetadata = JSON.parse(fs.readFileSync(metadataFile, 'utf-8'));
 
         // Restore the emulator state
-        this.gameboy.returnFromState(state);
+        const core = getCore(this.gameboy);
+        core.saving(state);  // Note: serverboy names this 'saving' not 'returnFromState'
 
         return metadata;
     }
