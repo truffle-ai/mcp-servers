@@ -94,10 +94,22 @@ class GameBoyEmulator {
     private gameName?: string;
     private streamActive: boolean = false;
     private streamClients: Set<(frame: Buffer) => void> = new Set();
+    private speedMultiplier: number = 1;
 
     constructor() {
         this.gameboy = new Gameboy();
         this.canvas = createCanvas(160, 144);
+    }
+
+    setSpeed(multiplier: number): void {
+        if (multiplier < 1 || multiplier > 10) {
+            throw new Error('Speed multiplier must be between 1 and 10');
+        }
+        this.speedMultiplier = Math.floor(multiplier);
+    }
+
+    getSpeed(): number {
+        return this.speedMultiplier;
     }
 
     // Install a ROM to the managed games directory
@@ -290,7 +302,9 @@ class GameBoyEmulator {
             [GameBoyButton.SELECT]: Gameboy.KEYMAP.SELECT,
         };
 
-        for (let i = 0; i < durationFrames; i++) {
+        // Apply speed multiplier to frame count
+        const actualFrames = durationFrames * this.speedMultiplier;
+        for (let i = 0; i < actualFrames; i++) {
             this.gameboy.pressKeys([buttonMap[button]]);
             this.gameboy.doFrame();
         }
@@ -300,7 +314,10 @@ class GameBoyEmulator {
 
     doFrame(): void {
         if (!this.romLoaded) throw new Error('No ROM loaded');
-        this.gameboy.doFrame();
+        // Apply speed multiplier
+        for (let i = 0; i < this.speedMultiplier; i++) {
+            this.gameboy.doFrame();
+        }
     }
 
     getScreenAsBuffer(): Buffer {
@@ -610,6 +627,22 @@ const tools = [
         inputSchema: {
             type: 'object' as const,
             properties: {},
+        },
+    },
+    {
+        name: 'set_speed',
+        description: 'Set emulator speed multiplier. Higher = faster gameplay. Use 2-4x for walking/grinding, 1x for precise inputs.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                multiplier: {
+                    type: 'number',
+                    description: 'Speed multiplier (1-10). 1=normal, 2=2x speed, 4=4x speed, etc.',
+                    minimum: 1,
+                    maximum: 10,
+                },
+            },
+            required: ['multiplier'],
         },
     },
     {
@@ -929,9 +962,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         romPath: emulator.getRomPath() || null,
                         streamActive: emulator.isStreamActive(),
                         streamUrl: httpServer ? `http://localhost:${STREAM_PORT}/stream` : null,
+                        speed: emulator.getSpeed(),
                     }),
                 };
                 return { content: [result] };
+            }
+
+            case 'set_speed': {
+                const multiplier = (args as any)?.multiplier;
+                if (multiplier === undefined) {
+                    return {
+                        content: [{ type: 'text', text: 'Error: multiplier is required' }],
+                        isError: true,
+                    };
+                }
+                emulator.setSpeed(multiplier);
+                return {
+                    content: [{
+                        type: 'text',
+                        text: `Speed set to ${multiplier}x`,
+                    }],
+                };
             }
 
             case 'list_games': {
