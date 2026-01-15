@@ -1,0 +1,56 @@
+{
+  "name": "@truffle-ai/openai-image-server",
+  "version": "0.1.0",
+  "private": false,
+  "description": "MCP server for OpenAI's image generation and editing API.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "prepublishOnly": "npm run build && chmod +x dist/index.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Truffle AI",
+  "license": "MIT",
+  "homepage": "https://github.com/truffle-ai/mcp-servers/tree/main/src/openai-image",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git",
+    "directory": "src/openai-image"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "openai": "^4.73.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "openai",
+    "ai",
+    "image-generation",
+    "image-editing",
+    "generative-ai"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bugs": {
+    "url": "https://github.com/truffle-ai/mcp-servers/issues"
+  }
+}

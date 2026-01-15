@@ -1,0 +1,53 @@
+{
+  "name": "@truffle-ai/twitter-server",
+  "version": "1.0.0",
+  "private": false,
+  "description": "A comprehensive MCP server for Twitter/X API integration with OAuth authentication",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Truffle AI",
+  "license": "MIT",
+  "homepage": "https://github.com/truffle-ai/mcp-servers/tree/main/src/twitter",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truffle-ai/mcp-servers.git",
+    "directory": "src/twitter"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "twitter-api-v2": "^1.15.0",
+    "zod": "^3.22.4",
+    "open": "^10.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "twitter",
+    "x-api",
+    "social-media",
+    "oauth",
+    "tweets",
+    "api"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
